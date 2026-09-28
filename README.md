@@ -137,24 +137,37 @@
 
 
 
-## 项目结构（规划）
+## 项目结构
 
 ```
-shangxiaotao/
+microservices-practice-2423040225/
 ├── README.md                      # 项目入口文档
 ├── docs/
+│   ├── project-proposal.md        # 项目提案
 │   └── homework/
-│       └── week-02/
-│           ├── index.md           # 本周作业文档
-│           └── screenshots/        # README 渲染截图
-├── shangxiaotao-user/             # 用户服务
-├── shangxiaotao-product/          # 商品服务
-├── shangxiaotao-order/            # 订单服务
-├── shangxiaotao-chat/             # 聊天服务
-├── shangxiaotao-review/           # 评价服务
-├── shangxiaotao-admin/            # 管理服务
-├── shangxiaotao-gateway/          # API 网关
-└── shangxiaotao-common/           # 公共组件
+│       ├── week-01/
+│       │   ├── index.md           # Week 01 作业文档
+│       │   └── screenshots/
+│       ├── week-02/
+│       │   ├── index.md           # Week 02 作业文档
+│       │   └── screenshots/
+│       └── week-03/
+│           ├── index.md           # Week 03 作业文档
+│           └── screenshots/
+└── monolith/                      # Spring Boot 单体工程
+    ├── pom.xml                    # Maven 配置（Spring Boot 4.0.7, Java 25）
+    ├── mvnw, mvnw.cmd             # Maven Wrapper
+    └── src/
+        ├── main/
+        │   ├── java/com/zjgsu/jby/
+        │   │   ├── Application.java          # 启动类
+        │   │   └── controller/
+        │   │       └── HelloController.java   # GET /api/hello
+        │   └── resources/
+        │       └── application.yml            # 应用配置
+        └── test/
+            └── java/com/zjgsu/jby/
+                └── ApplicationTests.java       # 启动测试
 ```
 
 
@@ -187,21 +200,71 @@ shangxiaotao/
 
 本仓库用于存放 **微服务开发课程** 的所有作业（homework），包含需求分析、项目实现、测试、部署和文档整理。
 
+## 工程运行说明
+
+### 环境要求
+
+- **Java**: 25（或更高版本）
+- **Maven**: 3.9+（项目内置 Maven Wrapper，无需单独安装）
+- **Spring Boot**: 4.0.7
+
+### 启动应用
+
+```bash
+cd monolith
+./mvnw spring-boot:run
+```
+
+启动后访问以下地址验证：
+
+| 接口 | 地址 | 说明 |
+|------|------|------|
+| 问候接口 | http://localhost:8080/api/hello | 返回项目名称和运行状态 |
+| 健康检查 | http://localhost:8080/actuator/health | 返回 `{"status":"UP"}` |
+
+### 运行测试
+
+```bash
+cd monolith
+./mvnw test
+```
+
+### 当前尚未实现的业务能力
+
+本周仅完成工程搭建和基础验证，以下功能尚未实现：
+
+- 数据库建模与持久化（MySQL 建表、MyBatis 集成）
+- 业务 REST API（商品 CRUD、用户注册登录、订单交易等）
+- Service 和 Repository 层
+- 认证授权（Spring Security + JWT 校园邮箱验证）
+- 即时聊天（WebSocket）
+- 帖子发布与内容社区
+- 小法庭纠纷仲裁
+- 支付系统（初期模拟支付）
+- 监控运维（日志收集、链路追踪、Prometheus 指标）
+- 容器化部署（Docker + Nginx + CI/CD）
+
 ## 目录结构
 
 ```
 .
 ├── README.md
 ├── docs/
+│   ├── project-proposal.md
 │   └── homework/
-│       └── week-01/
-│           ├── index.md          # 作业 01 文档
-│           └── screenshots/      # 截图存放目录
-└── src/                          # 项目源码目录
+│       ├── week-01/
+│       ├── week-02/
+│       └── week-03/
+└── monolith/                     # Spring Boot 单体工程
+    ├── pom.xml
+    ├── mvnw, mvnw.cmd
+    └── src/
 ```
 
 ## 作业进度
 
 | 周次 | 作业 | 状态 |
 |---|---|---|
-| Week 01 | 开发环境与个人仓库 | 🚧 进行中 |
+| Week 01 | 开发环境与个人仓库 | ✅ 已完成 |
+| Week 02 | 项目选题与功能规划 | ✅ 已完成 |
+| Week 03 | Spring Boot 工程创建与启动测试 | ✅ 已完成 |
