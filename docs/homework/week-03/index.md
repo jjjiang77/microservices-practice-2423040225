@@ -28,6 +28,8 @@
 | Spring Boot | 4.0.7 |
 | Maven | 3.9.9（内置 Wrapper） |
 | 包名 | com.zjgsu.jby |
+| Web Starter | spring-boot-starter-webmvc |
+| 测试 Starter | spring-boot-starter-webmvc-test |
 
 ### 工程结构
 
@@ -64,7 +66,19 @@ curl http://localhost:8080/api/hello
 响应：
 
 ```json
-{"project":"商小淘 ShangXiaoTao","description":"校园二手交易平台","status":"running"}
+{"message":"Hello, World!","status":"success"}
+```
+
+带参数：
+
+```bash
+curl "http://localhost:8080/api/hello?name=张三"
+```
+
+响应：
+
+```json
+{"message":"Hello, 张三!","status":"success"}
 ```
 
 #### 2. 健康检查

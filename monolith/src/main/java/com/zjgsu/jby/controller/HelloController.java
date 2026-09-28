@@ -1,19 +1,22 @@
 package com.zjgsu.jby.controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
 @RestController
+@RequestMapping("/api")
 public class HelloController {
 
-    @GetMapping("/api/hello")
-    public Map<String, String> hello() {
+    @GetMapping("/hello")
+    public Map<String, String> hello(
+            @RequestParam(defaultValue = "World") String name) {
         return Map.of(
-            "project", "商小淘 ShangXiaoTao",
-            "description", "校园二手交易平台",
-            "status", "running"
+            "message", "Hello, " + name + "!",
+            "status", "success"
         );
     }
 }
