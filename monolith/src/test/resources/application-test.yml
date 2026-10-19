@@ -1,0 +1,21 @@
+# 测试专用配置：使用 H2 内存数据库，无需本地 MySQL 即可重复执行 ./mvnw test
+spring:
+  datasource:
+    url: jdbc:h2:mem:shangxiaotao;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      # 每次测试重新建表，保证可重复
+      ddl-auto: create-drop
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+logging:
+  level:
+    root: WARN
+    com.zjgsu.jby: INFO

@@ -143,7 +143,8 @@
 microservices-practice-2423040225/
 ├── README.md                      # 项目入口文档
 ├── docs/
-│   ├── project-proposal.md        # 项目提案
+│   ├── project-proposal.md        # 项目提案（含 Week 04 流程/实体/规则）
+│   ├── database.md                # 数据库设计（表结构、关系、约束）
 │   └── homework/
 │       ├── week-01/
 │       │   ├── index.md           # Week 01 作业文档
@@ -151,23 +152,35 @@ microservices-practice-2423040225/
 │       ├── week-02/
 │       │   ├── index.md           # Week 02 作业文档
 │       │   └── screenshots/
-│       └── week-03/
-│           ├── index.md           # Week 03 作业文档
+│       ├── week-03/
+│       │   ├── index.md           # Week 03 作业文档
+│       │   └── screenshots/
+│       └── week-04/
+│           ├── index.md           # Week 04 作业文档
 │           └── screenshots/
 └── monolith/                      # Spring Boot 单体工程
     ├── pom.xml                    # Maven 配置（Spring Boot 4.0.7, Java 25）
     ├── mvnw, mvnw.cmd             # Maven Wrapper
+    ├── sql/                       # schema.sql（建库建表）/ data.sql（测试数据）
     └── src/
         ├── main/
         │   ├── java/com/zjgsu/jby/
-        │   │   ├── Application.java          # 启动类
-        │   │   └── controller/
-        │   │       └── HelloController.java   # GET /api/hello
+        │   │   ├── Application.java           # 启动类
+        │   │   ├── controller/                # UserController、ProductController
+        │   │   ├── dto/                       # 请求/响应 DTO
+        │   │   ├── entity/                    # User、Product 与枚举
+        │   │   ├── exception/                 # 业务异常 + GlobalExceptionHandler
+        │   │   ├── repository/                # UserRepository、ProductRepository
+        │   │   └── service/                   # UserService、ProductService（业务规则）
         │   └── resources/
-        │       └── application.yml            # 应用配置
+        │       └── application.yml            # MySQL 连接配置
         └── test/
-            └── java/com/zjgsu/jby/
-                └── ApplicationTests.java       # 启动测试
+            ├── java/com/zjgsu/jby/
+            │   ├── ApplicationTests.java              # 启动测试
+            │   ├── repository/UserRepositoryTest.java # Repository 读写
+            │   ├── service/ProductServiceTest.java    # Service 业务规则
+            │   └── controller/ProductApiTest.java     # API 正常/错误响应
+            └── resources/application-test.yml         # H2 测试库配置
 ```
 
 
@@ -229,13 +242,66 @@ cd monolith
 ./mvnw test
 ```
 
+测试使用 H2 内存库（`src/test/resources/application-test.yml`），无需本地 MySQL 即可重复执行：每个测试方法在事务中自动造数并回滚。
+
+### 本地 MySQL 配置
+
+```bash
+brew install mysql                        # 1. 安装（macOS）
+brew services start mysql                 # 2. 启动服务
+mysql -u root < monolith/sql/schema.sql   # 3. 建库 + 建表（含主键/唯一/外键/CHECK/索引）
+mysql -u root < monolith/sql/data.sql     # 4. 导入可重复执行的测试数据
+mysql -u root -e "CREATE USER IF NOT EXISTS 'shangxiaotao'@'localhost' IDENTIFIED BY 'shangxiaotao'; GRANT ALL PRIVILEGES ON shangxiaotao.* TO 'shangxiaotao'@'localhost'; FLUSH PRIVILEGES;"   # 5. 创建应用账号
+```
+
+连接配置在 `monolith/src/main/resources/application.yml`，默认 `jdbc:mysql://localhost:3306/shangxiaotao`，用户名 `shangxiaotao` / 密码 `shangxiaotao`，可用环境变量覆盖：
+
+```bash
+DB_USERNAME=root DB_PASSWORD=你的密码 ./mvnw spring-boot:run
+```
+
+### REST 接口
+
+| 方法 | 路径 | 说明 | 成功状态码 |
+|------|------|------|-----------|
+| POST | /api/users | 注册学生（学号唯一，重复返回 409） | 201 |
+| GET | /api/users/{id} | 查询用户 | 200 |
+| POST | /api/products | 发布商品，状态为 PENDING | 201 |
+| GET | /api/products | 分页浏览，支持 status / category / sellerId 过滤 | 200 |
+| GET | /api/products/{id} | 商品详情 | 200 |
+| POST | /api/products/{id}/approve | 审核上架 PENDING → ON_SALE | 200 |
+| POST | /api/products/{id}/purchase | 买家下单 ON_SALE → SOLD | 200 |
+| POST | /api/products/{id}/off-shelf | 卖家下架 ON_SALE → OFF_SHELF | 200 |
+
+### curl 示例
+
+```bash
+# 1. 注册卖家（id=1）与买家（id=2）
+curl -i -X POST http://localhost:8080/api/users -H 'Content-Type: application/json' \
+  -d '{"studentId":"2423040225","nickname":"小商同学","department":"计算机科学与技术学院"}'
+curl -i -X POST http://localhost:8080/api/users -H 'Content-Type: application/json' \
+  -d '{"studentId":"2423040999","nickname":"淘淘买家","department":"统计与数学学院"}'
+
+# 2. 卖家发布商品：201 + status=PENDING
+curl -i -X POST http://localhost:8080/api/products -H 'Content-Type: application/json' \
+  -d '{"title":"考研数学复习全书","description":"九成新，校内面交","price":45.00,"category":"TEXTBOOK","conditionLevel":"LIKE_NEW","sellerId":1}'
+
+# 3. 审核上架并浏览在售商品
+curl -i -X POST http://localhost:8080/api/products/1/approve
+curl -i "http://localhost:8080/api/products?status=ON_SALE&page=0&size=10"
+
+# 4. 买家下单：200 + status=SOLD
+curl -i -X POST http://localhost:8080/api/products/1/purchase -H 'Content-Type: application/json' -d '{"buyerId":2}'
+
+# 5. 业务规则拦截：价格 5000 元超过上限 2000，返回 422 PRICE_OUT_OF_RANGE
+curl -i -X POST http://localhost:8080/api/products -H 'Content-Type: application/json' \
+  -d '{"title":"高端电瓶车","price":5000.00,"category":"LARGE_ITEM","conditionLevel":"GOOD","sellerId":1}'
+```
+
 ### 当前尚未实现的业务能力
 
-本周仅完成工程搭建和基础验证，以下功能尚未实现：
+本周已实现商品发布与浏览链路（模型、Service、REST API、业务规则、MySQL 持久化与测试）。以下功能尚未实现：
 
-- 数据库建模与持久化（MySQL 建表、MyBatis 集成）
-- 业务 REST API（商品 CRUD、用户注册登录、订单交易等）
-- Service 和 Repository 层
 - 认证授权（Spring Security + JWT 校园邮箱验证）
 - 即时聊天（WebSocket）
 - 帖子发布与内容社区
@@ -258,7 +324,24 @@ cd monolith
 └── monolith/                     # Spring Boot 单体工程
     ├── pom.xml
     ├── mvnw, mvnw.cmd
+    ├── sql/
+    │   ├── schema.sql            # 建库建表（主键/唯一/外键/CHECK/索引）
+    │   └── data.sql              # 可重复执行的测试数据
     └── src/
+        ├── main/java/com/zjgsu/jby/
+        │   ├── Application.java
+        │   ├── controller/       # HelloController / UserController / ProductController
+        │   ├── dto/              # 请求与响应对象
+        │   ├── entity/           # User / Product + 枚举
+        │   ├── exception/        # 业务异常与全局异常处理
+        │   ├── repository/       # Spring Data JPA
+        │   └── service/          # UserService / ProductService（业务规则）
+        ├── main/resources/
+        │   ├── application.yml   # MySQL 连接
+        │   └── …
+        └── test/
+            ├── java/com/zjgsu/jby/…            # Repository / Service / API 测试
+            └── resources/application-test.yml  # H2 测试库
 ```
 
 ## 作业进度
@@ -268,3 +351,4 @@ cd monolith
 | Week 01 | 开发环境与个人仓库 | ✅ 已完成 |
 | Week 02 | 项目选题与功能规划 | ✅ 已完成 |
 | Week 03 | Spring Boot 工程创建与启动测试 | ✅ 已完成 |
+| Week 04 | 单体应用与数据库持久化 | ✅ 已完成 |
