@@ -1,0 +1,54 @@
+# 商小淘一键编排：Spring Boot 应用 + MySQL 8.4.11
+# 用法：
+#   cp .env.example .env        # 首次准备配置模板
+#   docker compose up -d --build
+# 不使用已废弃的 version 字段。
+
+services:
+  # ---- 数据库：MySQL 8.4.11 ----
+  mysql:
+    image: mysql:8.4.11
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 中设置 MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-shangxiaotao}
+      MYSQL_USER: ${MYSQL_USER:-shangxiaotao}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?请在 .env 中设置 MYSQL_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      # 命名数据卷：容器删除重建后数据仍保留（持久化验证的关键）
+      - mysql-data:/var/lib/mysql
+      # 首次启动（数据卷为空）时按文件名前缀顺序执行：先建库建表，再导入预置数据
+      - ./monolith/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./monolith/sql/data.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
+    healthcheck:
+      # 真实服务器就绪后 mysqladmin ping 才返回成功；init 阶段的临时实例不会导致误判
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    networks: [shangxiaotao]
+
+  # ---- 应用：构建上下文指向 ./monolith ----
+  app:
+    build:
+      context: ./monolith
+    image: shangxiaotao:week05
+    # 等数据库健康后再启动，避免应用先起连不上库
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      # 通过服务名 mysql 连接，不使用 localhost
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-shangxiaotao}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: ${MYSQL_USER:-shangxiaotao}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?请在 .env 中设置 MYSQL_PASSWORD}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    networks: [shangxiaotao]
+
+volumes:
+  mysql-data:
+
+networks:
+  shangxiaotao:

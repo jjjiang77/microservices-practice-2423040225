@@ -1,6 +1,8 @@
 -- 商小淘 ShangXiaoTao 数据库结构（MySQL 8.0+，可重复执行）
 -- 用法: mysql -u root -p < sql/schema.sql
 -- 对应设计文档: docs/database.md
+-- 显式声明导入字符集，避免容器内 mysql 客户端默认 latin1 造成中文乱码
+SET NAMES utf8mb4;
 
 CREATE DATABASE IF NOT EXISTS shangxiaotao
     DEFAULT CHARACTER SET utf8mb4

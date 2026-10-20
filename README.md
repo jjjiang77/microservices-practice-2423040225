@@ -298,9 +298,63 @@ curl -i -X POST http://localhost:8080/api/products -H 'Content-Type: application
   -d '{"title":"高端电瓶车","price":5000.00,"category":"LARGE_ITEM","conditionLevel":"GOOD","sellerId":1}'
 ```
 
+### Docker 容器化（Week 05）
+
+`Dockerfile`、`.dockerignore` 位于 `monolith/`；`compose.yaml`、`.env.example` 位于仓库根目录，构建上下文指向 `./monolith`。Compose 编排 `app`（本工程）与 `mysql`（MySQL 8.4.11）两个服务，应用通过服务名 `mysql` 连接数据库，MySQL 数据存放在命名数据卷 `mysql-data`，并配置健康检查让应用等数据库就绪后再启动。
+
+**1. 准备配置模板**
+
+```bash
+cp .env.example .env      # 按需修改密码与端口；真实 .env 已被 .gitignore 忽略
+```
+
+**2. 一键启动**
+
+```bash
+docker compose up -d --build
+```
+
+**3. 查看状态与日志**
+
+```bash
+docker compose ps
+docker compose logs -f app
+```
+
+**4. 停止与清理**
+
+```bash
+docker compose down        # 停止并删除容器，保留命名数据卷 mysql-data（数据不丢）
+docker compose down -v     # 连同数据卷一起删除（会清空数据，谨慎使用）
+```
+
+**健康接口**
+
+```bash
+curl -i http://localhost:8080/actuator/health
+```
+
+**业务 API 示例（容器端口映射到本机 8080）**
+
+```bash
+# 创建①：注册卖家用户（201）
+curl -i -X POST http://localhost:8080/api/users -H 'Content-Type: application/json' \
+  -d '{"studentId":"2423040225","nickname":"小商同学","department":"计算机科学与技术学院"}'
+
+# 创建②：卖家发布商品（201 + status=PENDING）
+curl -i -X POST http://localhost:8080/api/products -H 'Content-Type: application/json' \
+  -d '{"title":"考研数学复习全书","description":"九成新，校内面交","price":45.00,"category":"TEXTBOOK","conditionLevel":"LIKE_NEW","sellerId":1}'
+
+# 查询①：分页浏览在售商品（200）
+curl -i "http://localhost:8080/api/products?status=ON_SALE&page=0&size=10"
+
+# 查询②：商品详情（200）
+curl -i http://localhost:8080/api/products/1
+```
+
 ### 当前尚未实现的业务能力
 
-本周已实现商品发布与浏览链路（模型、Service、REST API、业务规则、MySQL 持久化与测试）。以下功能尚未实现：
+本周已实现商品发布与浏览链路，并完成 Docker 容器化交付。以下功能尚未实现：
 
 - 认证授权（Spring Security + JWT 校园邮箱验证）
 - 即时聊天（WebSocket）
@@ -308,13 +362,15 @@ curl -i -X POST http://localhost:8080/api/products -H 'Content-Type: application
 - 小法庭纠纷仲裁
 - 支付系统（初期模拟支付）
 - 监控运维（日志收集、链路追踪、Prometheus 指标）
-- 容器化部署（Docker + Nginx + CI/CD）
+- 生产部署增强（Nginx 反向代理、CI/CD 自动构建部署）
 
 ## 目录结构
 
 ```
 .
 ├── README.md
+├── compose.yaml                  # 一键编排 app + MySQL 8.4.11
+├── .env.example                  # 环境变量模板（复制为 .env）
 ├── docs/
 │   ├── project-proposal.md
 │   └── homework/
@@ -322,6 +378,8 @@ curl -i -X POST http://localhost:8080/api/products -H 'Content-Type: application
 │       ├── week-02/
 │       └── week-03/
 └── monolith/                     # Spring Boot 单体工程
+    ├── Dockerfile                # 多阶段构建（Maven 构建 → JRE 运行）
+    ├── .dockerignore
     ├── pom.xml
     ├── mvnw, mvnw.cmd
     ├── sql/
@@ -352,3 +410,4 @@ curl -i -X POST http://localhost:8080/api/products -H 'Content-Type: application
 | Week 02 | 项目选题与功能规划 | ✅ 已完成 |
 | Week 03 | Spring Boot 工程创建与启动测试 | ✅ 已完成 |
 | Week 04 | 单体应用与数据库持久化 | ✅ 已完成 |
+| Week 05 | Docker 容器化（Dockerfile + Compose） | ✅ 已完成 |

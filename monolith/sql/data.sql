@@ -1,5 +1,7 @@
 -- 商小淘测试数据（可重复执行：INSERT IGNORE + 固定主键，重复执行不会报错、不会产生重复数据）
 -- 用法: mysql -u root -p < sql/data.sql
+-- 显式声明导入字符集，避免容器内 mysql 客户端默认 latin1 造成中文乱码
+SET NAMES utf8mb4;
 
 USE shangxiaotao;
 
