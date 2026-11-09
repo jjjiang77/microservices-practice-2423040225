@@ -4,13 +4,10 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -18,7 +15,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 商品（二手物品）。每个商品归属一个卖家用户（N:1）。
+ * 商品（二手物品）。微服务拆分后，Product 不再直接关联 User 实体，
+ * 只保存 sellerId（外键 id）和 sellerNickname（冗余），
+ * 跨服务查询通过 user-service 的 HTTP 接口完成。
  */
 @Entity
 @Table(
@@ -39,7 +38,6 @@ public class Product {
     @Column(name = "description", length = 500)
     private String description;
 
-    /** 商品价格，单位元，最多 8 位整数 + 2 位小数 */
     @Column(name = "price", nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 
@@ -47,7 +45,6 @@ public class Product {
     @Column(name = "category", nullable = false, length = 24)
     private ProductCategory category;
 
-    /** 列名用 condition_level，避免与 MySQL 保留字 CONDITION 冲突 */
     @Enumerated(EnumType.STRING)
     @Column(name = "condition_level", nullable = false, length = 16)
     private ProductCondition conditionLevel;
@@ -56,9 +53,12 @@ public class Product {
     @Column(name = "status", nullable = false, length = 16)
     private ProductStatus status = ProductStatus.PENDING;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "seller_id", nullable = false, foreignKey = @ForeignKey(name = "fk_product_seller"))
-    private User seller;
+    /** 微服务拆分：只存 sellerId + sellerNickname，不直接关联 User 实体 */
+    @Column(name = "seller_id", nullable = false)
+    private Long sellerId;
+
+    @Column(name = "seller_nickname", length = 64)
+    private String sellerNickname;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -66,9 +66,7 @@ public class Product {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    protected Product() {
-        // JPA 需要无参构造
-    }
+    protected Product() {}
 
     public Product(
             String title,
@@ -76,13 +74,15 @@ public class Product {
             BigDecimal price,
             ProductCategory category,
             ProductCondition conditionLevel,
-            User seller) {
+            Long sellerId,
+            String sellerNickname) {
         this.title = title;
         this.description = description;
         this.price = price;
         this.category = category;
         this.conditionLevel = conditionLevel;
-        this.seller = seller;
+        this.sellerId = sellerId;
+        this.sellerNickname = sellerNickname;
         this.status = ProductStatus.PENDING;
     }
 
@@ -98,47 +98,16 @@ public class Product {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    public ProductCategory getCategory() {
-        return category;
-    }
-
-    public ProductCondition getConditionLevel() {
-        return conditionLevel;
-    }
-
-    public ProductStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(ProductStatus status) {
-        this.status = status;
-    }
-
-    public User getSeller() {
-        return seller;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
+    public Long getId() { return id; }
+    public String getTitle() { return title; }
+    public String getDescription() { return description; }
+    public BigDecimal getPrice() { return price; }
+    public ProductCategory getCategory() { return category; }
+    public ProductCondition getConditionLevel() { return conditionLevel; }
+    public ProductStatus getStatus() { return status; }
+    public void setStatus(ProductStatus status) { this.status = status; }
+    public Long getSellerId() { return sellerId; }
+    public String getSellerNickname() { return sellerNickname; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

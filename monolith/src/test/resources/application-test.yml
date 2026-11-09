@@ -19,3 +19,6 @@ logging:
   level:
     root: WARN
     com.zjgsu.jby: INFO
+
+spring.cloud.nacos.discovery.enabled: false
+spring.cloud.service-registry.auto-registration.enabled: false

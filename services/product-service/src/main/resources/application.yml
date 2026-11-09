@@ -1,0 +1,42 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:}
+        namespace: ${NACOS_NAMESPACE:}
+        group: PERSONAL_GROUP
+  application:
+    name: product-service
+  datasource:
+    # 默认连接本地 MySQL，建库建表脚本见 monolith/sql/schema.sql
+    # 连接地址、账号、密码均可用环境变量覆盖：
+    #   本机运行 -> 默认值即可；容器运行 -> DB_URL 指向服务名 mysql:3306（见根目录 compose.yaml）
+    url: ${DB_URL:jdbc:mysql://localhost:3306/shangxiaotao?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:shangxiaotao}
+    password: ${DB_PASSWORD:shangxiaotao}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      # 表结构由 sql/schema.sql 设计，Hibernate 只补缺失列，不做破坏性变更
+      ddl-auto: update
+    open-in-view: false
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    root: INFO
+    com.zjgsu.jby: DEBUG

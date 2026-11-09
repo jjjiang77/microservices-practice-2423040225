@@ -4,18 +4,14 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * 用户（学生，买卖双方共用）。一个用户可以发布多个商品（1:N）。
@@ -56,10 +52,6 @@ public class User {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-
-    /** 该用户发布的商品（反向关系，商品表持有外键） */
-    @OneToMany(mappedBy = "seller", fetch = FetchType.LAZY)
-    private List<Product> products = new ArrayList<>();
 
     protected User() {
         // JPA 需要无参构造
@@ -124,7 +116,4 @@ public class User {
         return updatedAt;
     }
 
-    public List<Product> getProducts() {
-        return products;
-    }
 }

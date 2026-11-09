@@ -13,7 +13,7 @@ RUN mvn -B -q dependency:go-offline
 
 # 再复制源码并打包（跳过测试，测试在本地/CI 单独执行）
 COPY src ./src
-RUN mvn -B -q clean package -DskipTests
+RUN mvn -B -q clean package -Dmaven.test.skip=true
 
 # ===== 阶段二：运行（runtime）=====
 # 只带 JRE，不含 Maven、源码与构建缓存，镜像更小、攻击面更少。

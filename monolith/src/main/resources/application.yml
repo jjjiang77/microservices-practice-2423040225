@@ -2,8 +2,16 @@ server:
   port: 8080
 
 spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:}
+        namespace: ${NACOS_NAMESPACE:}
+        group: PERSONAL_GROUP
   application:
-    name: shangxiaotao
+    name: product-service
   datasource:
     # 默认连接本地 MySQL，建库建表脚本见 monolith/sql/schema.sql
     # 连接地址、账号、密码均可用环境变量覆盖：

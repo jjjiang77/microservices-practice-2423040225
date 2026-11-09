@@ -1,10 +1,30 @@
-# 商小淘一键编排：Spring Boot 应用 + MySQL 8.4.11
-# 用法：
-#   cp .env.example .env        # 首次准备配置模板
-#   docker compose up -d --build
+# 商小淘 Week-06 微服务本地编排：MySQL + product-service + user-service
+# 用法（一键拉起）：
+#   cp .env.example .env          # 首次准备配置模板
+#   docker compose up -d --build  # 构建并启动全部容器
+#   docker compose ps             # 查看全部服务状态
+#   docker compose logs -f        # 查看实时日志
+# 一键停止并清理：
+#   docker compose down -v        # 停容器+删数据卷（仅开发测试用）
 # 不使用已废弃的 version 字段。
 
 services:
+  nacos:
+    image: nacos/nacos-server:v3.2.4
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: "true"
+      NACOS_AUTH_TOKEN: ${NACOS_AUTH_TOKEN:?设置至少32字节随机值的Base64编码}
+      NACOS_AUTH_IDENTITY_KEY: ${NACOS_AUTH_IDENTITY_KEY:?设置服务身份key}
+      NACOS_AUTH_IDENTITY_VALUE: ${NACOS_AUTH_IDENTITY_VALUE:?设置服务身份value}
+    ports:
+      - "127.0.0.1:18080:8080"
+      - "127.0.0.1:8848:8848"
+      - "127.0.0.1:9848:9848"
+    volumes:
+      - nacos-data:/home/nacos/data
+      - nacos-logs:/home/nacos/logs
+    networks: [shangxiaotao]
   # ---- 数据库：MySQL 8.4.11 ----
   mysql:
     image: mysql:8.4.11
@@ -29,25 +49,74 @@ services:
       start_period: 20s
     networks: [shangxiaotao]
 
-  # ---- 应用：构建上下文指向 ./monolith ----
-  app:
+  # ---- 服务1：product-service（原 monolith 改造，商品域，端口 8080）----
+  product-service:
     build:
-      context: ./monolith
-    image: shangxiaotao:week05
-    # 等数据库健康后再启动，避免应用先起连不上库
+      context: ./services/product-service
+    image: product-service:week06
+    # 等数据库 + user-service 都就绪再启动，避免先起连不上库/调不通用户服务
     depends_on:
       mysql:
         condition: service_healthy
+      user-service:
+        condition: service_started
+      nacos:
+        condition: service_started
     environment:
-      # 通过服务名 mysql 连接，不使用 localhost
+      # 用 compose 服务名 mysql 连接，不使用 localhost
       DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-shangxiaotao}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
       DB_USERNAME: ${MYSQL_USER:-shangxiaotao}
       DB_PASSWORD: ${MYSQL_PASSWORD:?请在 .env 中设置 MYSQL_PASSWORD}
+      # 通过 Nacos 获取用户服务实例地址
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:?设置 Nacos 初始化后的密码}
     ports:
-      - "${APP_PORT:-8080}:8080"
+      - "127.0.0.1:8080:8080"
+    networks: [shangxiaotao]
+
+  # ---- 服务2：user-service（新建，用户域，端口 8081）----
+  user-service:
+    build:
+      context: ./services/user-service
+    image: user-service:week06
+    # 仅等数据库健康（user-service 不依赖其他微服务）
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_started
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-shangxiaotao}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: ${MYSQL_USER:-shangxiaotao}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?请在 .env 中设置 MYSQL_PASSWORD}
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:?设置 Nacos 初始化后的密码}
+    ports:
+      - "127.0.0.1:8081:8081"
+    networks: [shangxiaotao]
+
+  purchase-service:
+    build:
+      context: ./services/purchase-service
+    image: purchase-service:week07
+    depends_on:
+      nacos:
+        condition: service_started
+      product-service:
+        condition: service_started
+    environment:
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:?设置 Nacos 初始化后的密码}
+    ports:
+      - "127.0.0.1:8083:8083"
     networks: [shangxiaotao]
 
 volumes:
+  nacos-data:
+  nacos-logs:
   mysql-data:
 
 networks:

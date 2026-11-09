@@ -1,3 +1,24 @@
+# 商小淘 · 校园二手交易平台
+
+当前开发入口为 `services/`，根 `pom.xml` 统一聚合三个服务。`monolith/` 与根 `user-service/` 为历史演进目录，保留以便对照课程作业，请勿在两份源码之间重复修改。
+
+| 目录 | 职责 | 本机端口 |
+|---|---|---|
+| services/user-service | 用户注册、查询与信用资料 | 8081 |
+| services/product-service | 商品发布、审核、筛选和状态流转 | 8080 |
+| services/purchase-service | 通过服务发现转发购买请求，尚无独立订单持久化 | 8083 |
+| scripts/ | 本机健康检查 | |
+| docs/homework/ | 历次课程作业 | |
+| docs/midterm/ | 期中核查与提交文字 | |
+
+构建当前全部服务：`./monolith/mvnw -f pom.xml -DskipTests package`。运行入口为根目录 `compose.yaml`，配置参考 `.env.example`，不要覆盖已有 `.env`。
+
+期中最新核查（2026-11-09）：以 Compose 实际绑定的 127.0.0.1 访问，健康、商品发布、审核、组合筛选、跨服务购买及持久化查询通过，价格、自购、重复发布与重复购买拦截符合预期。先前 localhost 返回的 404 不能代表个人项目故障，已更正。旧测试仍引用拆分前用户实体，需要迁移。详见 [期中说明](docs/midterm/期中汇报文字说明.md)。
+
+以下保留历史项目规划与周作业记录，涉及“当前阶段”的表述以期中核查为准。
+
+---
+
 # 微服务课程项目
 
 
@@ -411,3 +432,10 @@ curl -i http://localhost:8080/api/products/1
 | Week 03 | Spring Boot 工程创建与启动测试 | ✅ 已完成 |
 | Week 04 | 单体应用与数据库持久化 | ✅ 已完成 |
 | Week 05 | Docker 容器化（Dockerfile + Compose） | ✅ 已完成 |
+## Week 07 服务注册与发现（进行中）
+
+个人项目与课堂选课系统分别维护。个人服务使用 `PERSONAL_GROUP`，课堂使用 `COURSE_GROUP`。本次代码与尚未完成的验收项见 [Week 07](docs/homework/week-07/index.md)。
+
+本地 `.env` 需补充 `.env.example` 中的 Nacos 配置，不要覆盖已有数据库密码。Token 密钥须为至少 32 字节随机值的 Base64 编码。先执行 `docker compose up -d nacos`，打开 `http://localhost:18080/` 完成管理员密码初始化，将实际密码填入本地 `NACOS_PASSWORD`，再执行 `docker compose up -d --build`。控制台端口为 18080，8848 为服务端口，9848 为 SDK 通信端口，均只映射本机。控制台选择默认命名空间及 `PERSONAL_GROUP` 查看实例。
+
+根目录执行 `bash scripts/smoke-test.sh` 检查控制台与三个服务的健康接口；脚本默认检查三个业务服务。脚本失败返回非零。业务流程、下线和恢复仍需另行验证。第 06 周遗留测试仍需重构为服务分离后的测试。依赖 BOM 暂按官方兼容版本配置，尚未核对课程统一版本。

@@ -29,8 +29,8 @@ public record ProductResponse(
                 product.getCategory().name(),
                 product.getConditionLevel().name(),
                 product.getStatus().name(),
-                product.getSeller().getId(),
-                product.getSeller().getNickname(),
+                product.getSellerId(),
+                product.getSellerNickname(),
                 product.getCreatedAt(),
                 product.getUpdatedAt());
     }
