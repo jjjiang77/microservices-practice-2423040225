@@ -44,6 +44,7 @@ public class ProductService {
         this.userClient = userClient;
     }
 
+    // 事务管理本次商品库写入，远程用户查询拥有独立的服务边界。
     @Transactional
     public ProductResponse publish(CreateProductRequest request) {
         // 跨服务调 user-service 查卖家
@@ -66,9 +67,11 @@ public class ProductService {
             throw new DuplicateResourceException("该卖家已存在同标题的未售出商品: " + title);
         }
 
+        // 业务检查通过后再创建商品，保存卖家编号和发布时的昵称。
         Product product = new Product(
                 title, request.description(), price, request.category(), request.conditionLevel(),
                 request.sellerId(), (String) seller.get("nickname"));
+        // JPA 将实体写入 t_product，再转换成接口返回对象。
         return ProductResponse.from(productRepository.save(product));
     }
 
@@ -80,6 +83,7 @@ public class ProductService {
     @Transactional(readOnly = true)
     public PageResponse<ProductResponse> search(
             ProductStatus status, ProductCategory category, Long sellerId, int page, int size) {
+        // 限制每页条数，默认按创建时间倒序。
         Pageable pageable = PageRequest.of(
                 Math.max(page, 0),
                 Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
@@ -125,6 +129,7 @@ public class ProductService {
                     "买家信用分 " + buyerCredit + " 低于门槛 " + MIN_CREDIT_SCORE + "，暂不允许下单");
         }
 
+        // 当前只改变商品状态。顺序重复购买会被状态检查拦截，并发竞争仍需原子更新。
         product.setStatus(ProductStatus.SOLD);
         return ProductResponse.from(productRepository.save(product));
     }

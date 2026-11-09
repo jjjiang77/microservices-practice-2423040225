@@ -27,11 +27,13 @@ public class ProductController {
 
     private final ProductService productService;
 
+    // Spring 通过构造器注入业务对象。接口层负责参数与 HTTP 响应。
     public ProductController(ProductService productService) {
         this.productService = productService;
     }
 
     /** 卖家发布商品，新商品状态为 PENDING */
+    // JSON 先转换为请求对象并校验字段，创建成功后用 Location 返回详情地址。
     @PostMapping
     public ResponseEntity<ProductResponse> publish(@Valid @RequestBody CreateProductRequest request) {
         ProductResponse created = productService.publish(request);

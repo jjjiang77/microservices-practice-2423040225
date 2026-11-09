@@ -20,6 +20,7 @@ public class UserClient {
     }
 
     private String address(Long id) {
+        // 服务发现返回实例地址，当前实现选择列表中的第一个实例。
         var instances = discovery.getInstances("user-service");
         if (instances.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "user-service 无可用实例");
@@ -30,7 +31,9 @@ public class UserClient {
     public Map<String, Object> findById(Long id) {
         String url = address(id);
         try {
+            // 得到地址后直接向用户服务发送 HTTP 请求，读取用户资料。
             return rest.getForObject(url, Map.class);
+            // 资源不存在与依赖调用失败分别返回 404 和 503。
         } catch (HttpClientErrorException.NotFound ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "依赖资源不存在", ex);
         } catch (RestClientException ex) {

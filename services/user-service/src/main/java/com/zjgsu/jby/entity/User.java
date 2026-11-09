@@ -68,6 +68,7 @@ public class User {
         this.creditScore = creditScore;
     }
 
+    // 用户首次写入前初始化创建时间和更新时间。
     @PrePersist
     void onCreate() {
         LocalDateTime now = LocalDateTime.now();

@@ -23,5 +23,6 @@ public interface ProductRepository extends JpaRepository<Product, Long>, org.spr
     Page<Product> findBySellerId(Long sellerId, Pageable pageable);
 
     /** 判断某卖家是否已存在处于指定状态的同标题商品，用于重复发布校验 */
+    // Spring Data 根据方法名生成查询，用于判断卖家是否已发布同标题的未售商品。
     boolean existsBySellerIdAndTitleAndStatusIn(Long sellerId, String title, Collection<ProductStatus> statuses);
 }

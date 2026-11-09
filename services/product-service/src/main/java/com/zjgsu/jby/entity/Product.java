@@ -29,6 +29,7 @@ import java.time.LocalDateTime;
 public class Product {
 
     @Id
+    // 新商品的主键由数据库自增生成。
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
@@ -39,6 +40,7 @@ public class Product {
     private String description;
 
     @Column(name = "price", nullable = false, precision = 10, scale = 2)
+    // 用十进制类型表示金额，对应数据库两位小数。
     private BigDecimal price;
 
     @Enumerated(EnumType.STRING)
@@ -66,6 +68,7 @@ public class Product {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    // JPA 从数据库加载记录时使用无参构造器。
     protected Product() {}
 
     public Product(
@@ -86,6 +89,7 @@ public class Product {
         this.status = ProductStatus.PENDING;
     }
 
+    // 首次写入前填两个时间，之后创建时间保持原值。
     @PrePersist
     void onCreate() {
         LocalDateTime now = LocalDateTime.now();
@@ -93,6 +97,7 @@ public class Product {
         this.updatedAt = now;
     }
 
+    // JPA 更新商品记录前刷新修改时间。
     @PreUpdate
     void onUpdate() {
         this.updatedAt = LocalDateTime.now();
