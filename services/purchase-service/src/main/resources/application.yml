@@ -3,7 +3,17 @@ server:
 spring:
   application:
     name: purchase-service
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/shangxiaotao_purchase}
+    username: ${DB_USERNAME:shangxiaotao_purchase}
+    password: ${DB_PASSWORD:shangxiaotao}
   cloud:
+    openfeign:
+      client:
+        config:
+          product-service:
+            connectTimeout: 3000
+            readTimeout: 5000
     nacos:
       discovery:
         server-addr: ${NACOS_SERVER_ADDR:localhost:8848}

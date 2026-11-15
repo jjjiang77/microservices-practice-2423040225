@@ -2,16 +2,51 @@
 
 当前开发入口为 `services/`，根 `pom.xml` 统一聚合三个服务。`monolith/` 与根 `user-service/` 为历史演进目录，保留以便对照课程作业，请勿在两份源码之间重复修改。
 
-| 目录 | 职责 | 本机端口 |
-|---|---|---|
-| services/user-service | 用户注册、查询与信用资料 | 8081 |
-| services/product-service | 商品发布、审核、筛选和状态流转 | 8080 |
-| services/purchase-service | 通过服务发现转发购买请求，尚无独立订单持久化 | 8083 |
-| scripts/ | 本机健康检查 | |
-| docs/homework/ | 历次课程作业 | |
-| docs/midterm/ | 期中核查与提交文字 | |
+## 项目结构
+
+```text
+microservices-practice-2423040225/
+├── services/                  # 当前开发与部署入口
+│   ├── user-service/          # 8081：用户注册、查询与信用资料
+│   ├── product-service/       # 8080：商品发布、审核、筛选与状态流转
+│   └── purchase-service/      # 8083：发现商品服务并转发购买请求
+├── pom.xml                    # Maven 聚合三个服务
+├── compose.yaml               # 编排三个业务服务、MySQL 与 Nacos
+├── .env.example               # 本地环境配置模板
+├── database/                 # 现行分库建表、账号初始化与迁移
+├── scripts/
+│   ├── smoke-test.sh          # 健康检查
+│   └── verify-midterm.py      # HTTP 业务链路验收
+├── docs/
+│   ├── homework/              # 各周作业与记录
+│   └── midterm/               # 期中技术核查与文字说明
+├── monolith/                  # 历史工程，仍提供 Maven Wrapper，原 SQL 供课程对照
+└── user-service/              # 历史用户服务，供课程对照
+```
+
+用户和商品服务内部按 `controller`（接口）、`service`（业务）、
+`repository`（数据访问）、`entity`（数据库映射）和 `dto`（请求与响应）组织。
+购买服务目前只有轻量转发入口，尚未引入独立订单持久化。
+各服务的 `src/main/resources/application.yml` 保存运行配置。
 
 构建当前全部服务：`./monolith/mvnw -f pom.xml -DskipTests package`。运行入口为根目录 `compose.yaml`，配置参考 `.env.example`，不要覆盖已有 `.env`。
+
+## 数据库按服务隔离
+
+Compose 使用一个 MySQL 实例承载三个独立库。账号只能访问与自己同名的业务库。
+
+| 服务 | 数据库 | 职责 |
+|---|---|---|
+| user-service | shangxiaotao_user | 用户、学号和信用分 |
+| product-service | shangxiaotao_product | 商品、卖家编号和状态 |
+| purchase-service | shangxiaotao_purchase | 独立 JDBC 连接，预留给后续订单持久化 |
+
+商品库保留 `seller_id` 作为业务引用，卖家资料仍由商品服务通过 HTTP 读取。现有购买入口继续调用商品服务更新商品状态。
+
+- 新数据卷用 `docker compose up -d --build` 自动建库、授予权限并导入示例数据。
+- 已有共用库运行 `./scripts/migrate-databases.sh`。脚本先构建镜像，再暂停业务服务，按原 ID 复制用户和商品，最后启动分库后的服务。原库和命名卷保留。迁移完成标记使脚本可以重跑。
+- 分库账号的密码可在 `.env` 中独立配置。已有环境可以沿用 `MYSQL_PASSWORD`。改密码后重新执行迁移脚本以更新账号配置。
+- 本机运行服务时，通过 `DB_URL`、`DB_USERNAME` 和 `DB_PASSWORD` 指向对应库。容器使用 Compose 注入的配置。
 
 期中最新核查（2026-11-09）：以 Compose 实际绑定的 127.0.0.1 访问，健康、商品发布、审核、组合筛选、跨服务购买及持久化查询通过，价格、自购、重复发布与重复购买拦截符合预期。先前 localhost 返回的 404 不能代表个人项目故障，已更正。旧测试仍引用拆分前用户实体，需要迁移。详见 [期中说明](docs/midterm/期中汇报文字说明.md)。
 

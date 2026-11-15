@@ -1,4 +1,4 @@
-# 商小淘 Week-06 微服务本地编排：MySQL + product-service + user-service
+# 商小淘本地编排：三个业务服务、独立数据库、Nacos
 # 用法（一键拉起）：
 #   cp .env.example .env          # 首次准备配置模板
 #   docker compose up -d --build  # 构建并启动全部容器
@@ -25,21 +25,20 @@ services:
       - nacos-data:/home/nacos/data
       - nacos-logs:/home/nacos/logs
     networks: [shangxiaotao]
-  # ---- 数据库：MySQL 8.4.11 ----
+  # 一个 MySQL 实例承载三个独立业务库，保留原数据卷便于迁移。
   mysql:
     image: mysql:8.4.11
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 中设置 MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-shangxiaotao}
-      MYSQL_USER: ${MYSQL_USER:-shangxiaotao}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?请在 .env 中设置 MYSQL_PASSWORD}
+      LEGACY_MYSQL_DATABASE: ${MYSQL_DATABASE:-shangxiaotao}
+      USER_DB_PASSWORD: ${USER_DB_PASSWORD:-${MYSQL_PASSWORD:?请设置 MYSQL_PASSWORD}}
+      PRODUCT_DB_PASSWORD: ${PRODUCT_DB_PASSWORD:-${MYSQL_PASSWORD:?请设置 MYSQL_PASSWORD}}
+      PURCHASE_DB_PASSWORD: ${PURCHASE_DB_PASSWORD:-${MYSQL_PASSWORD:?请设置 MYSQL_PASSWORD}}
       TZ: Asia/Shanghai
     volumes:
-      # 命名数据卷：容器删除重建后数据仍保留（持久化验证的关键）
       - mysql-data:/var/lib/mysql
-      # 首次启动（数据卷为空）时按文件名前缀顺序执行：先建库建表，再导入预置数据
-      - ./monolith/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./monolith/sql/data.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
+      - ./database:/opt/shangxiaotao-db:ro
+      - ./database/bootstrap.sh:/docker-entrypoint-initdb.d/01-bootstrap.sh:ro
     healthcheck:
       # 真实服务器就绪后 mysqladmin ping 才返回成功；init 阶段的临时实例不会导致误判
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
@@ -50,7 +49,7 @@ services:
     networks: [shangxiaotao]
 
   # ---- 服务1：product-service（原 monolith 改造，商品域，端口 8080）----
-  product-service:
+  product-service: &product-service
     build:
       context: ./services/product-service
     image: product-service:week06
@@ -64,9 +63,11 @@ services:
         condition: service_started
     environment:
       # 用 compose 服务名 mysql 连接，不使用 localhost
-      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-shangxiaotao}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-      DB_USERNAME: ${MYSQL_USER:-shangxiaotao}
-      DB_PASSWORD: ${MYSQL_PASSWORD:?请在 .env 中设置 MYSQL_PASSWORD}
+      DB_URL: jdbc:mysql://mysql:3306/shangxiaotao_product?characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SERVER_TOMCAT_ACCESSLOG_ENABLED: "true"
+      SERVER_TOMCAT_BASEDIR: /tmp/product-tomcat
+      DB_USERNAME: shangxiaotao_product
+      DB_PASSWORD: ${PRODUCT_DB_PASSWORD:-${MYSQL_PASSWORD:?请设置 MYSQL_PASSWORD}}
       # 通过 Nacos 获取用户服务实例地址
       NACOS_SERVER_ADDR: nacos:8848
       NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
@@ -74,6 +75,10 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     networks: [shangxiaotao]
+
+  product-service-replica:
+    <<: *product-service
+    ports: []
 
   # ---- 服务2：user-service（新建，用户域，端口 8081）----
   user-service:
@@ -87,9 +92,9 @@ services:
       nacos:
         condition: service_started
     environment:
-      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-shangxiaotao}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-      DB_USERNAME: ${MYSQL_USER:-shangxiaotao}
-      DB_PASSWORD: ${MYSQL_PASSWORD:?请在 .env 中设置 MYSQL_PASSWORD}
+      DB_URL: jdbc:mysql://mysql:3306/shangxiaotao_user?characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: shangxiaotao_user
+      DB_PASSWORD: ${USER_DB_PASSWORD:-${MYSQL_PASSWORD:?请设置 MYSQL_PASSWORD}}
       NACOS_SERVER_ADDR: nacos:8848
       NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
       NACOS_PASSWORD: ${NACOS_PASSWORD:?设置 Nacos 初始化后的密码}
@@ -100,13 +105,18 @@ services:
   purchase-service:
     build:
       context: ./services/purchase-service
-    image: purchase-service:week07
+    image: purchase-service:week08
     depends_on:
+      mysql:
+        condition: service_healthy
       nacos:
         condition: service_started
       product-service:
         condition: service_started
     environment:
+      DB_URL: jdbc:mysql://mysql:3306/shangxiaotao_purchase?characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: shangxiaotao_purchase
+      DB_PASSWORD: ${PURCHASE_DB_PASSWORD:-${MYSQL_PASSWORD:?请设置 MYSQL_PASSWORD}}
       NACOS_SERVER_ADDR: nacos:8848
       NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
       NACOS_PASSWORD: ${NACOS_PASSWORD:?设置 Nacos 初始化后的密码}
