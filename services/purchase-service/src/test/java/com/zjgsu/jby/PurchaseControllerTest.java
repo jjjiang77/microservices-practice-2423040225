@@ -17,7 +17,8 @@ class PurchaseControllerTest {
 
     @Test
     void returnsProductResponse() {
-        var controller = new PurchaseController((id, buyer) -> ResponseEntity.ok(Map.of("status", "SOLD")));
+        var controller = new PurchaseController(
+                new PurchaseService((id, buyer) -> ResponseEntity.ok(Map.of("status", "SOLD"))));
         assertEquals("SOLD", controller.purchase(request).getBody().get("status"));
     }
 
@@ -27,7 +28,7 @@ class PurchaseControllerTest {
                 "http://product-service/api/products/1/purchase", Map.of(), null, null, null);
         var failure = FeignException.errorStatus("purchase", Response.builder()
                 .status(503).reason("Unavailable").request(downstream).build());
-        var controller = new PurchaseController((id, buyer) -> { throw failure; });
+        var controller = new PurchaseController(new PurchaseService((id, buyer) -> { throw failure; }));
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE,
                 assertThrows(ResponseStatusException.class, () -> controller.purchase(request)).getStatusCode());
     }

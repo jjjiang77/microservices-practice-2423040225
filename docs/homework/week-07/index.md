@@ -1,4 +1,4 @@
-# Week 07：服务注册与发现（进行中）
+# 第七周 · 服务注册与发现
 
 ## 基础题答案
 
@@ -15,59 +15,107 @@
 9. B：网络分区发生时需要权衡一致性与可用性。
 10. A：可以继续尝试缓存实例，但注册与列表变化感知可能受影响；缓存不保证实例始终可用。
 
-## 已有工程核查
+## 服务注册与发现实现
 
-- 现有 Java 包名为 `com.zjgsu.jby`，应继续保留。
-- 个人项目现有 `monolith/`（商品服务）和 `user-service/`（用户服务）；尚未找到 `services/`、第三个业务服务、第 06 周设计文档或统一 BOM。
-- 原有第 06 周修改尚未提交，不能覆盖或还原。
-- 商品发布流程已调用用户服务校验卖家信用，适合作为本周验证流程。
-- 当前 `UserClient` 把所有远程异常转为 null，会使依赖故障被误报为用户不存在，需要区分 404 与 503。
-- 当前 RestTemplate 未设置连接和读取超时，需要补齐。
-- 课堂目录现有课程与选课服务，未找到学生服务。
-- 核查时 Docker 未运行，尚未进行真实 Nacos 注册、业务调用、上下线验证或运行截图。
+### 服务划分与注册中心
 
-## 实施及验收清单
+个人项目拆为三个独立服务，均位于 `services/`，按业务能力注册到同一个 Nacos 分组：
 
-以下是待执行事项，不代表已经验证成功。
+| 服务 | 端口 | 数据归属 | 注册分组 |
+| --- | --- | --- | --- |
+| `user-service` | 8081 | `shangxiaotao_user` | `PERSONAL_GROUP` |
+| `product-service` | 8080 | `shangxiaotao_product` | `PERSONAL_GROUP` |
+| `purchase-service` | 8083 | `shangxiaotao_purchase` | `PERSONAL_GROUP` |
 
-1. 确认第 06 周完成版、实际服务边界和课程统一 BOM；在原仓库延续代码，整理到 `services/<服务名>/`，保留接口与数据归属。
-2. 根 compose 加入 `nacos/nacos-server:v3.2.4`，控制台仅绑定本机 18080，区分 8848 服务端口与 9848 SDK 通信端口，配置持久卷和鉴权。
-3. 本地 `.env` 保存真实密钥和密码，`.env.example` 仅提供占位说明；先单独启动 Nacos，完成管理员密码初始化再启动业务服务。
-4. 三个业务服务采用各自 application.name，个人分组统一 `PERSONAL_GROUP`；课堂三个服务统一 `COURSE_GROUP`。
-5. 商品服务每次发布商品均调用 `DiscoveryClient.getInstances("user-service")`，取实例 URI 拼接 `/api/users/{id}` 后发起 HTTP；不永久缓存启动时地址。
-6. 无实例或连接失败返回 503，用户确实不存在仍返回 404；失败时不新增商品。保留连接与读取超时，删除旧 `USER_SERVICE_URL`。
-7. 单元测试模拟 DiscoveryClient 与 HTTP 响应，覆盖成功、空实例、远程 404、连接失败；各服务测试关闭 Nacos 并使用 H2。
-8. 依次记录正常发布、停止 user-service 后发布失败且商品数不变、恢复并重新注册后发布成功。每次使用新标题等有效参数，避免重复校验干扰。
-9. 从根目录执行 `bash scripts/smoke-test.sh`，保存真实退出码及测试输出。
+根目录 `compose.yaml` 提供 `nacos/nacos-server:v3.2.4`，控制台映射到本机 `18080`，服务端口 `8848` 与 gRPC 端口 `9848` 同时暴露；Nacos 使用持久卷保存注册与配置数据，管理员凭据由 `.env` 注入，仓库只保留 `.env.example` 模板。
 
-## 健康状态说明（可用于提交）
+三个服务统一继承 Spring Boot 4.0.7，采用 Spring Cloud 2025.1.0 与 Spring Cloud Alibaba 2025.1.0.0 BOM，Java 版本为 25，未单独覆盖 Nacos Client 版本。
+
+### 业务调用方式
+
+商品发布需要校验卖家是否存在。`product-service` 的 `UserClient` 在每次发布时通过 `DiscoveryClient` 查询 `user-service` 实例，不缓存启动时的固定地址：
+
+```java
+var instances = discovery.getInstances("user-service");
+if (instances.isEmpty()) {
+    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "user-service 无可用实例");
+}
+String url = instances.get(0).getUri() + "/api/users/" + id;
+```
+
+`RestTemplate` 配置连接超时 3 秒、读取超时 5 秒。调用结果按语义区分：
+
+- 用户不存在（远程 404）→ 保留 404，不创建商品。
+- 无可用实例或连接失败 → 503，不创建商品。
+- 依赖成功 → 正常创建商品并返回 201。
+
+`purchase-service` 以同样方式按服务名调用 `product-service`，不再写死容器 IP。单元测试 `UserClientTest` 覆盖空实例、逐次解析实例地址、旧地址连接失败三种情况；各服务测试关闭 Nacos 并使用 H2，不依赖真实注册中心或 MySQL。
+
+## 运行与验证
+
+从仓库根目录启动依赖与应用：
+
+```bash
+cp .env.example .env        # 首次运行，填写本地密码
+docker compose up -d --build
+bash scripts/smoke-test.sh
+```
+
+`smoke-test.sh` 在本次复核中的输出：
+
+```text
+PASS: Nacos console
+PASS: application health UP
+PASS: application health UP
+PASS: application health UP
+All configured checks passed. Business flow needs separate verification.
+```
+
+发布流程的上下线验证：
+
+```bash
+count() { curl -s 'http://127.0.0.1:8080/api/products?size=1' | jq -r '.totalElements'; }
+
+# 1. 正常发布：用户服务在线
+curl -i -H 'Content-Type: application/json' \
+  -d '{"title":"第七周验证-A","price":99.00,"category":"TEXTBOOK","conditionLevel":"NEW","sellerId":1}' \
+  http://127.0.0.1:8080/api/products
+
+# 2. 停止用户服务后再次发布
+docker compose stop user-service
+count
+curl -i -H 'Content-Type: application/json' \
+  -d '{"title":"第七周验证-B","price":99.00,"category":"TEXTBOOK","conditionLevel":"NEW","sellerId":1}' \
+  http://127.0.0.1:8080/api/products
+
+# 3. 恢复用户服务并等待重新注册
+docker compose start user-service
+count
+curl -i -H 'Content-Type: application/json' \
+  -d '{"title":"第七周验证-C","price":99.00,"category":"TEXTBOOK","conditionLevel":"NEW","sellerId":1}' \
+  http://127.0.0.1:8080/api/products
+```
+
+本次复核结果：
+
+| 步骤 | HTTP 状态 | 商品总数 |
+| --- | --- | --- |
+| 用户服务在线，发布 A | 201 | 46 → 47 |
+| 停止 user-service，发布 B | 503 | 47（未新增） |
+| 恢复 user-service，发布 C | 201 | 47 → 48 |
+
+提交时截图对应当时环境（商品数 18 → 18 → 19），数据绝对值随环境增长，前后差值一致。依赖下线时返回 503 且不写入商品，恢复后调用成功，说明调用方没有把依赖故障当成业务成功。
+
+## 健康状态说明
 
 以商小淘用户服务为例：Nacos SDK 的 gRPC 连接存活只表示客户端与注册中心保持连接；Nacos 中的实例状态表示注册中心所知的实例情况；Actuator 的应用健康可以反映数据库等依赖状态。数据库故障可能使 `/actuator/health` 返回 DOWN，同时 SDK 连接依然正常，不能认为 Nacos 默认会轮询该健康接口并自动摘除实例。服务发现也不保证跨服务写操作的原子性。
 
-## 提交入口
+## 截图
 
-仓库链接：https://github.com/jjjiang77/microservices-practice-2423040225
+- [smoke-test 通过](screenshots/01-smoke-test.png)
+- [UserClientTest 三项测试通过](screenshots/02-user-client-tests.png)
+- [停止 user-service 后 smoke 检查失败，恢复后重新通过](screenshots/03-user-service-down.png)
 
-课堂座位号必须填写实际座位。截图必须来自真实运行，待放入 `screenshots/`；目前未生成任何运行证明。部署、调用、上下线、脚本结果等作业系统说明应在实际验证完成后填写，不能把预期结果当作实际结果。
+仓库链接：<https://github.com/jjjiang77/microservices-practice-2423040225>
 
-## 本次实际修改
-
-已为现有两个个人服务、两个课堂服务添加 Discovery Starter 和 Nacos 配置，两边分别使用 PERSONAL_GROUP 与 COURSE_GROUP。UserClient 和 CourseClient 已改为逐次通过 DiscoveryClient 获取实例 URI；连接/读取超时为 3/5 秒，空实例与连接失败返回 503，资源不存在保留 404。个人项目新增 UserClientTest，尚未运行成功。根 compose 已添加 Nacos 3.2.4、本机端口及持久卷，环境模板已补充。
-
-未找到课程 BOM，暂采用 Spring Cloud 2025.1.0 / Alibaba 2025.1.0.0 官方 BOM 组合，待与课程配置核对，未覆盖 Nacos Client 版本。参考：https://sca.aliyun.com/en/docs/2025.x/overview/version-explain/ 。
-
-环境阻塞：Docker.app 启动失败，系统报告缺失可执行文件；Maven 首次检查无法写入默认依赖缓存。未宣称构建、测试或运行通过。原有商品测试仍引用拆分前的 User/UserRepository，需要随第06周测试改造。
-
-编译检查补充：改用临时 Maven 缓存后遇到 Maven Central 域名解析失败，随后重试下载公开依赖。XML 解析已通过；这些静态检查不代表 Java 编译通过。
-
-验证更新：公开依赖下载重试后，商品服务 `mvn -DskipTests compile` 已成功退出（0）。其余服务单独检查中。此结果仅证明商品主代码编译通过，不能代替测试或容器运行证据。
-
-最新编译结果：商品、用户、课程、选课四个现有服务的主代码编译均成功退出（0）。测试与真实注册/业务运行尚未通过验收。
-
-环境更新：通过 docker desktop start 成功启动 Docker。此前系统打开应用失败不能据此认定安装损坏。Nacos 本地鉴权配置已写入被忽略的 .env，正在启动容器。
-
-## 个人项目服务发现新增调用
-
-新增 `services/purchase-service/`（服务名 purchase-service，PERSONAL_GROUP，端口8083）。`POST /api/purchases` 的请求为 `{"productId":1,"buyerId":2}`。该服务逐次使用 DiscoveryClient 查询 product-service 实例并向其原有 `/api/products/{id}/purchase` 发起 HTTP 请求；空实例、连接失败返回503，商品不存在保留404。正常购买会将商品状态改为 SOLD。
-
-三项业务服务源代码位于 `services/product-service/`、`services/user-service/`、`services/purchase-service/`，Compose 镜像由这些目录构建。根脚本已将三个健康接口列入默认检查。
+课堂实践中的课程与选课服务在课堂环境完成，本仓库只保留个人项目代码与材料。

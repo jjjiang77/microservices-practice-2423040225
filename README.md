@@ -467,10 +467,14 @@ curl -i http://localhost:8080/api/products/1
 | Week 03 | Spring Boot 工程创建与启动测试 | ✅ 已完成 |
 | Week 04 | 单体应用与数据库持久化 | ✅ 已完成 |
 | Week 05 | Docker 容器化（Dockerfile + Compose） | ✅ 已完成 |
-## Week 07 服务注册与发现（进行中）
+| Week 06 | 服务拆分与本地编排 | ✅ 已完成 |
+| Week 07 | 服务注册与发现 | ✅ 已完成 |
+| Week 08 | 服务通信与负载均衡 | ✅ 已完成 |
 
-个人项目与课堂选课系统分别维护。个人服务使用 `PERSONAL_GROUP`，课堂使用 `COURSE_GROUP`。本次代码与尚未完成的验收项见 [Week 07](docs/homework/week-07/index.md)。
+## Week 07 服务注册与发现
+
+个人项目与课堂选课系统分别维护。个人服务使用 `PERSONAL_GROUP`，课堂使用 `COURSE_GROUP`。实现与验证记录见 [Week 07](docs/homework/week-07/index.md)，服务通信说明见 [服务通信](docs/service-communication.md)。
 
 本地 `.env` 需补充 `.env.example` 中的 Nacos 配置，不要覆盖已有数据库密码。Token 密钥须为至少 32 字节随机值的 Base64 编码。先执行 `docker compose up -d nacos`，打开 `http://localhost:18080/` 完成管理员密码初始化，将实际密码填入本地 `NACOS_PASSWORD`，再执行 `docker compose up -d --build`。控制台端口为 18080，8848 为服务端口，9848 为 SDK 通信端口，均只映射本机。控制台选择默认命名空间及 `PERSONAL_GROUP` 查看实例。
 
-根目录执行 `bash scripts/smoke-test.sh` 检查控制台与三个服务的健康接口；脚本默认检查三个业务服务。脚本失败返回非零。业务流程、下线和恢复仍需另行验证。第 06 周遗留测试仍需重构为服务分离后的测试。依赖 BOM 暂按官方兼容版本配置，尚未核对课程统一版本。
+根目录执行 `bash scripts/smoke-test.sh` 检查控制台与三个服务的健康接口；脚本失败返回非零。跨服务购买、依赖下线与恢复、双实例轮询和故障注入均由 `scripts/e2e-test.sh` 验证，详见 [Week 08](docs/homework/week-08/index.md)。

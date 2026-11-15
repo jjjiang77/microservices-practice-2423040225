@@ -150,3 +150,12 @@ Docker Compose version v5.5.1
 ### 其他问题
 
 - Maven 使用的 Java 版本（27）与系统 `java --version`（17）不一致：这是 Homebrew 的正常行为，Maven 自带依赖的 openjdk 27 仅用于 Maven 运行，项目编译和运行仍使用系统配置的 JDK 17，不影响开发。
+
+---
+
+## 截图
+
+- [开发环境检查：Java、Maven、Git、Docker 版本](screenshots/01-environment.png)
+- [GitHub 个人仓库与提交记录](screenshots/02-repository.png)
+
+仓库链接：<https://github.com/jjjiang77/microservices-practice-2423040225>

@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.zjgsu</groupId>
+    <groupId>com.zjgsu.jby</groupId>
     <artifactId>monolith</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>monolith</name>
