@@ -1,4 +1,4 @@
-# 商小淘本地编排：三个业务服务、独立数据库、Nacos
+# 商小淘本地编排：API 网关、三个业务服务、独立数据库、Nacos
 # 用法（一键拉起）：
 #   cp .env.example .env          # 首次准备配置模板
 #   docker compose up -d --build  # 构建并启动全部容器
@@ -6,6 +6,7 @@
 #   docker compose logs -f        # 查看实时日志
 # 一键停止并清理：
 #   docker compose down -v        # 停容器+删数据卷（仅开发测试用）
+# 统一入口：http://127.0.0.1:8080（gateway-service）
 # 不使用已废弃的 version 字段。
 
 services:
@@ -48,7 +49,7 @@ services:
       start_period: 20s
     networks: [shangxiaotao]
 
-  # ---- 服务1：product-service（原 monolith 改造，商品域，端口 8080）----
+  # ---- 服务1：product-service（原 monolith 改造，商品域，容器端口 8080 / 宿主机 18081）----
   product-service: &product-service
     build:
       context: ./services/product-service
@@ -72,8 +73,11 @@ services:
       NACOS_SERVER_ADDR: nacos:8848
       NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
       NACOS_PASSWORD: ${NACOS_PASSWORD:?设置 Nacos 初始化后的密码}
+      # 调用 user-service 时携带的内部密钥，必须与 user-service 一致
+      GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?请在 .env 中设置 GATEWAY_INTERNAL_SECRET}
     ports:
-      - "127.0.0.1:8080:8080"
+      # 业务服务只绑定回环地址供本地调试；对外统一走网关 8080
+      - "127.0.0.1:18081:8080"
     networks: [shangxiaotao]
 
   product-service-replica:
@@ -98,6 +102,10 @@ services:
       NACOS_SERVER_ADDR: nacos:8848
       NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
       NACOS_PASSWORD: ${NACOS_PASSWORD:?设置 Nacos 初始化后的密码}
+      # 与网关共享的 JWT 密钥与内部调用密钥
+      JWT_SECRET: ${JWT_SECRET:?请在 .env 中设置 JWT_SECRET}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-3600}
+      GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?请在 .env 中设置 GATEWAY_INTERNAL_SECRET}
     ports:
       - "127.0.0.1:8081:8081"
     networks: [shangxiaotao]
@@ -122,6 +130,31 @@ services:
       NACOS_PASSWORD: ${NACOS_PASSWORD:?设置 Nacos 初始化后的密码}
     ports:
       - "127.0.0.1:8083:8083"
+    networks: [shangxiaotao]
+
+  # ---- API 网关：统一对外入口 8080，负责路由、JWT 校验与身份头注入 ----
+  gateway-service:
+    build:
+      context: ./services/gateway-service
+    image: gateway-service:week09
+    depends_on:
+      nacos:
+        condition: service_started
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+      purchase-service:
+        condition: service_started
+    environment:
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_USERNAME: ${NACOS_USERNAME:-nacos}
+      NACOS_PASSWORD: ${NACOS_PASSWORD:?设置 Nacos 初始化后的密码}
+      # 验签密钥必须与 user-service 完全相同；内部密钥用于下游来源校验
+      JWT_SECRET: ${JWT_SECRET:?请在 .env 中设置 JWT_SECRET}
+      GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?请在 .env 中设置 GATEWAY_INTERNAL_SECRET}
+    ports:
+      - "127.0.0.1:8080:8080"
     networks: [shangxiaotao]
 
 volumes:

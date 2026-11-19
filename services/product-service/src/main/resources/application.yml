@@ -26,6 +26,11 @@ spring:
       hibernate:
         format_sql: true
 
+app:
+  security:
+    # 调用 user-service 时携带的网关内部密钥，需与 user-service 配置一致。
+    gateway-secret: ${GATEWAY_INTERNAL_SECRET:dev-only-change-me-gateway-secret}
+
 management:
   endpoints:
     web:

@@ -2,5 +2,5 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.zjgsu.jby</groupId><artifactId>shangxiaotao</artifactId><version>0.1.0-SNAPSHOT</version>
   <packaging>pom</packaging><name>商小淘服务聚合入口</name>
-  <modules><module>services/user-service</module><module>services/product-service</module><module>services/purchase-service</module></modules>
+  <modules><module>services/user-service</module><module>services/product-service</module><module>services/purchase-service</module><module>services/gateway-service</module></modules>
 </project>

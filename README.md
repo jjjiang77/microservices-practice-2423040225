@@ -1,24 +1,27 @@
 # 商小淘 · 校园二手交易平台
 
-当前开发入口为 `services/`，根 `pom.xml` 统一聚合三个服务。`monolith/` 与根 `user-service/` 为历史演进目录，保留以便对照课程作业，请勿在两份源码之间重复修改。
+当前开发入口为 `services/`，根 `pom.xml` 统一聚合四个服务。`monolith/` 与根 `user-service/` 为历史演进目录，保留以便对照课程作业，请勿在两份源码之间重复修改。
 
 ## 项目结构
 
 ```text
 microservices-practice-2423040225/
 ├── services/                  # 当前开发与部署入口
-│   ├── user-service/          # 8081：用户注册、查询与信用资料
-│   ├── product-service/       # 8080：商品发布、审核、筛选与状态流转
+│   ├── gateway-service/       # 8080：统一入口、JWT 验签、路由转发
+│   ├── user-service/          # 8081：登录签发 JWT、用户注册/查询、管理端
+│   ├── product-service/       # 容器 8080 / 宿主机 18081：商品发布、审核与状态流转
 │   └── purchase-service/      # 8083：发现商品服务并转发购买请求
-├── pom.xml                    # Maven 聚合三个服务
-├── compose.yaml               # 编排三个业务服务、MySQL 与 Nacos
-├── .env.example               # 本地环境配置模板
+├── pom.xml                    # Maven 聚合四个服务
+├── compose.yaml               # 编排网关、三个业务服务、MySQL 与 Nacos
+├── .env.example               # 本地环境配置模板（含 JWT 与内部密钥占位符）
 ├── database/                 # 现行分库建表、账号初始化与迁移
 ├── scripts/
 │   ├── smoke-test.sh          # 健康检查
+│   ├── auth-test.sh           # 网关鉴权自动测试（401/403/200/防绕过）
 │   └── verify-midterm.py      # HTTP 业务链路验收
 ├── docs/
 │   ├── homework/              # 各周作业与记录
+│   ├── security.md            # 认证流程、角色权限、网关路由表
 │   └── midterm/               # 期中技术核查与文字说明
 ├── monolith/                  # 历史工程，仍提供 Maven Wrapper，原 SQL 供课程对照
 └── user-service/              # 历史用户服务，供课程对照
@@ -30,6 +33,36 @@ microservices-practice-2423040225/
 各服务的 `src/main/resources/application.yml` 保存运行配置。
 
 构建当前全部服务：`./monolith/mvnw -f pom.xml -DskipTests package`。运行入口为根目录 `compose.yaml`，配置参考 `.env.example`，不要覆盖已有 `.env`。
+
+## 统一入口与认证
+
+对外只暴露网关 `http://127.0.0.1:8080`，业务服务端口仅绑定回环地址供调试。
+
+| 路由 | 目标服务 | 鉴权 |
+|---|---|---|
+| `/api/auth/**`、`/api/users/**`、`/api/admin/**` | user-service | 登录/注册公开，其余需 JWT，管理端需 ADMIN |
+| `/api/products/**` | product-service | 需 JWT |
+| `/api/purchases/**` | purchase-service | 需 JWT |
+
+启动与验证：
+
+```bash
+cp .env.example .env      # 填入数据库密码、JWT_SECRET、GATEWAY_INTERNAL_SECRET
+docker compose up -d --build
+curl -s http://127.0.0.1:8080/actuator/health
+./scripts/auth-test.sh
+```
+
+测试账号（密码仅用于课程演示，数据库只存 BCrypt 哈希）：
+
+| 学号 | 密码 | 角色 |
+|---|---|---|
+| 2423040225 | Student@123 | STUDENT |
+| 2423040999 | Student@123 | STUDENT |
+| 2423040001 | Student@123 | STUDENT（低信用） |
+| admin | Admin@123 | ADMIN |
+
+认证流程、角色权限与防绕过说明见 [docs/security.md](docs/security.md)，本周作业记录见 [week-09](docs/homework/week-09/index.md)。
 
 ## 数据库按服务隔离
 

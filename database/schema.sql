@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS t_user
     nickname     VARCHAR(32) NOT NULL COMMENT '昵称',
     department   VARCHAR(40) NULL COMMENT '院系',
     role         VARCHAR(16) NOT NULL DEFAULT 'STUDENT' COMMENT '角色: STUDENT/ADMIN',
+    password_hash VARCHAR(100) NULL COMMENT 'BCrypt 密码哈希，禁止存明文',
     credit_score INT         NOT NULL DEFAULT 100 COMMENT '信用分',
     created_at   DATETIME(6) NOT NULL COMMENT '创建时间',
     updated_at   DATETIME(6) NOT NULL COMMENT '更新时间',

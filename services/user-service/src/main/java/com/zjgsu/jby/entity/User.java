@@ -43,6 +43,10 @@ public class User {
     @Column(name = "role", nullable = false, length = 16)
     private UserRole role = UserRole.STUDENT;
 
+    /** BCrypt 密码哈希，永不保存明文；历史数据可能为空，登录时按失败处理 */
+    @Column(name = "password_hash", length = 100)
+    private String passwordHash;
+
     /** 信用分，低于发布/下单门槛时被业务规则拦截 */
     @Column(name = "credit_score", nullable = false)
     private Integer creditScore = DEFAULT_CREDIT_SCORE;
@@ -99,6 +103,14 @@ public class User {
 
     public UserRole getRole() {
         return role;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     public Integer getCreditScore() {

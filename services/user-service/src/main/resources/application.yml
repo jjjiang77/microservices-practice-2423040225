@@ -26,6 +26,14 @@ spring:
       hibernate:
         format_sql: true
 
+app:
+  security:
+    # 与网关共享的 JWT 密钥，生产环境必须通过环境变量注入。
+    jwt-secret: ${JWT_SECRET:dev-only-change-me-jwt-secret-at-least-32-bytes}
+    jwt-ttl-seconds: ${JWT_TTL_SECONDS:3600}
+    # 网关转发时附带的内部密钥；直接访问本服务的非公开接口会被拒绝。
+    gateway-secret: ${GATEWAY_INTERNAL_SECRET:dev-only-change-me-gateway-secret}
+
 management:
   endpoints:
     web:

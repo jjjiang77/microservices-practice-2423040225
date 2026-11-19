@@ -5,10 +5,16 @@ SET NAMES utf8mb4;
 
 USE shangxiaotao_user;
 
-INSERT IGNORE INTO t_user (id, student_id, nickname, department, role, credit_score, created_at, updated_at)
-VALUES (1, '2423040225', '小商同学', '计算机科学与技术学院', 'STUDENT', 100, NOW(6), NOW(6)),
-       (2, '2423040999', '淘淘买家', '统计与数学学院', 'STUDENT', 88, NOW(6), NOW(6)),
-       (3, '2423040001', '低信用同学', '环境科学与工程学院', 'STUDENT', 40, NOW(6), NOW(6));
+-- 测试账号密码（库里只存 BCrypt 哈希，明文密码仅记录在 docs/security.md）：
+--   2423040225 / Student@123 （STUDENT）
+--   2423040999 / Student@123 （STUDENT）
+--   2423040001 / Student@123 （STUDENT，低信用）
+--   admin      / Admin@123   （ADMIN）
+INSERT IGNORE INTO t_user (id, student_id, nickname, department, role, password_hash, credit_score, created_at, updated_at)
+VALUES (1, '2423040225', '小商同学', '计算机科学与技术学院', 'STUDENT', '$2y$10$rKtFxL9LdIL2QMh/3Wb3zOgEIjfMyGo6hCHOfAGrXdqzDm/1XXIqa', 100, NOW(6), NOW(6)),
+       (2, '2423040999', '淘淘买家', '统计与数学学院', 'STUDENT', '$2y$10$rKtFxL9LdIL2QMh/3Wb3zOgEIjfMyGo6hCHOfAGrXdqzDm/1XXIqa', 88, NOW(6), NOW(6)),
+       (3, '2423040001', '低信用同学', '环境科学与工程学院', 'STUDENT', '$2y$10$rKtFxL9LdIL2QMh/3Wb3zOgEIjfMyGo6hCHOfAGrXdqzDm/1XXIqa', 40, NOW(6), NOW(6)),
+       (4, 'admin', '平台管理员', NULL, 'ADMIN', '$2y$10$bbphrNsujMnD1T2zNe/fsub.E2Do/0y4PhKSVmSFYyj4ylD8visHC', 100, NOW(6), NOW(6));
 
 USE shangxiaotao_product;
 

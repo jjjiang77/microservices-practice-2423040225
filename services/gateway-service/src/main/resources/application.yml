@@ -1,0 +1,48 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:}
+        namespace: ${NACOS_NAMESPACE:}
+        group: PERSONAL_GROUP
+    gateway:
+      server:
+        webflux:
+          # 三条业务路由，目标均为 Nacos 服务名，由 LoadBalancer 选择实例。
+          routes:
+            - id: user-service
+              uri: lb://user-service
+              predicates:
+                - Path=/api/users/**,/api/auth/**,/api/admin/**
+            - id: product-service
+              uri: lb://product-service
+              predicates:
+                - Path=/api/products/**
+            - id: purchase-service
+              uri: lb://purchase-service
+              predicates:
+                - Path=/api/purchases/**
+
+app:
+  security:
+    # 生产环境必须通过环境变量注入，示例值仅用于本地开发。
+    jwt-secret: ${JWT_SECRET:dev-only-change-me-jwt-secret-at-least-32-bytes}
+    gateway-secret: ${GATEWAY_INTERNAL_SECRET:dev-only-change-me-gateway-secret}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    root: INFO
+    com.zjgsu.jby: DEBUG
